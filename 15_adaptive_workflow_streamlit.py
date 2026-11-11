@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 
 import streamlit as st
+from ojt2_object_definition import render_object_definition
 from ojt2_discovery_core import (
     HISTORY_DB,
     unique_fields, save_review, list_reviews, get_setting, set_setting,
@@ -688,9 +689,8 @@ def page_results(data, index, mod, metadata_fresh: bool, metadata_run_id: int):
                     st.warning("Tidak ada bukti candidate JOIN key. Sumber mungkin relevan secara field, "
                                "tetapi belum bisa diusulkan sebagai composite source.")
                 for w in item.get('warnings',[]):st.caption("• " + w)
-                if item['source'].get('sql_definition'):
-                    with st.expander("Supporting source SQL definition (read-only)"):
-                        st.code(item['source']['sql_definition'],language='sql')
+                with st.expander("Supporting source SQL definition (read-only)"):
+                    render_object_definition(item['source'], index['columns'].get(item['source']['object_key'], []))
                 if any(s['source']['logical_server']!='DGA' for s in support):
                     st.info("Sumber di luar logical DGA perlu cek ketersediaan DGA / connectivity; "
                             "replication advisory bukan perintah replikasi otomatis.")
@@ -717,11 +717,8 @@ def page_results(data, index, mod, metadata_fresh: bool, metadata_run_id: int):
                                   "Evidence":s["status"]} for s in steps],hide_index=True,use_container_width=True)
                 else: st.info("Tidak ditemukan lineage pada arah ini.")
             st.markdown("#### SQL Definition")
-            if c["object"].get("sql_definition"):
-                with st.expander("Lihat SQL Definition",expanded=False):
-                    st.code(c["object"]["sql_definition"],language="sql",line_numbers=True)
-            elif c["type"]=="Table":
-                st.caption("Tabel fisik tidak punya sys.sql_modules definition. Lihat GENERATED_BY untuk pembentuknya.")
+            with st.expander("Lihat SQL Definition",expanded=False):
+                render_object_definition(c["object"], index['columns'].get(selected, []))
 
         with t_review:
             st.markdown("#### PIC Source Review — Save to Mapping History")
@@ -862,10 +859,7 @@ def page_metadata(data,index,mod, fresh):
                     else:
                         st.info('Kolom output Stored Procedure tidak tersedia langsung dari sys.columns.')
                 elif active=='SQL Definition':
-                    if obj.get('sql_definition'):
-                        st.code(obj['sql_definition'],language='sql',line_numbers=True)
-                    else:
-                        st.info('Tidak ada SQL module definition pada metadata snapshot.')
+                    render_object_definition(obj, cols)
                 elif active=='Recursive Lineage':
                     if not fresh:
                         st.error('Lineage snapshot belum sinkron dengan metadata. Jalankan refresh lineage.')
