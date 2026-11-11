@@ -86,47 +86,139 @@ def _nav_start():
 
 
 def inject_style():
-    st.markdown("""
-    <style>
-      /* Clean enterprise workspace. CSS changes only presentation, not discovery logic. */
-      .block-container {max-width: 1240px; padding-top: 2.2rem; padding-bottom: 3rem;}
-      h1 {font-size: 1.9rem !important; font-weight: 720 !important; letter-spacing: -.035em !important;}
-      h2, h3 {letter-spacing: -.025em !important;}
-      [data-testid="stSidebar"] {border-right: 1px solid rgba(127,140,158,.16);}
-      [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {padding-top: 1.8rem;}
-      [data-testid="stSidebar"] .stButton > button {
-          justify-content: flex-start; text-align: left; width:100%;
-          border-radius: 10px; border: 1px solid transparent;
-          box-shadow: none; font-weight: 510; padding: .52rem .9rem;
-          transition: background-color .14s ease, color .14s ease;
-      }
-      [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
-          background: transparent; color: var(--text-color);
-      }
-      [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
-          background: rgba(87,111,144,.09); border-color: transparent;
-      }
-      [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-          background: rgba(37,99,235,.11); color: #2563eb;
-          border-color: transparent; font-weight: 670;
-      }
-      [data-testid="stMetric"] {
-          background: var(--secondary-background-color);
-          border: 1px solid rgba(130,140,155,.12);
-          padding: 16px 18px; border-radius: 13px;
-      }
-      [data-testid="stTabs"] button[data-baseweb="tab"] {
-          border-radius: 10px 10px 0 0; padding: .6rem 1.1rem;
-      }
-      [data-testid="stDeployButton"] {display: none;}
-      footer {visibility: hidden;}
-      [data-testid="stDataFrame"] {border-radius: 9px; overflow: hidden;}
-      [data-testid="stFileUploader"] {border-radius: 12px;}
-      .workspace-brand {font-weight: 760; font-size: 1.05rem; letter-spacing: -.025em; margin-bottom: 1.6rem;}
-      .workspace-divider {height:1px; margin:1.1rem 0 1.05rem; background:rgba(130,140,155,.15);}
-      .workspace-note {font-size:.8rem; color:#7b8794;}
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>
+/* Presentation only: match the supplied HTML palette without adding UI content. */
+:root {
+  --sds-bg:#f5f8fd; --sds-navy:#0e2350; --sds-blue:#1466dd;
+  --sds-ice:#e8f1ff; --sds-sub:#62738d; --sds-line:#dfe6f0;
+  --sds-ink:#21324f; --sds-shadow:0 8px 26px rgba(17,50,102,.055);
+  --primary-color:#1466dd; --text-color:#21324f;
+  --background-color:#f5f8fd; --secondary-background-color:#ffffff;
+}
+html {scroll-behavior:smooth;}
+body, [data-testid="stAppViewContainer"], input, textarea, button,
+[data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"],
+[data-testid="stMetric"], h1, h2, h3, h4 {
+  font-family:Inter,'Segoe UI',Arial,sans-serif!important;
+}
+[data-testid="stAppViewContainer"], [data-testid="stMain"] {
+  background:var(--sds-bg); color:var(--sds-ink);
+}
+[data-testid="stHeader"] {background:rgba(255,255,255,.96);border-bottom:1px solid var(--sds-line);}
+.block-container {max-width:1510px;padding:2rem 1.8rem 4.25rem;}
+h1 {color:var(--sds-navy)!important;font-size:1.65rem!important;font-weight:800!important;letter-spacing:-.035em!important;line-height:1.3!important;padding-bottom:.35rem!important;}
+h2,h3,h4 {color:var(--sds-navy)!important;letter-spacing:-.02em!important;}
+h2 {font-size:1.35rem!important;}
+h3 {font-size:1.08rem!important;font-weight:750!important;}
+[data-testid="stMarkdownContainer"] p {color:var(--sds-ink);line-height:1.6;}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {color:var(--sds-sub)!important;font-size:.8rem;line-height:1.55;}
+a {color:var(--sds-blue);}
+hr {border-color:var(--sds-line)!important;margin:1.4rem 0!important;}
+/* Sidebar keeps the original labels, ordering, and click callbacks. */
+[data-testid="stSidebar"] {background:#fff;border-right:1px solid #e4eaf4;}
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {padding:0 1rem 1.5rem!important;}
+.workspace-brand {
+  position:relative;background:linear-gradient(130deg,#0c4baa,#0a63db);
+  color:#fff!important;font-weight:800;font-size:1.05rem;line-height:1.3;
+  letter-spacing:-.025em;padding:1.65rem 1.2rem 1.65rem 3.85rem;
+  margin:0 -1rem 1.05rem;min-height:108px;display:flex;align-items:center;
+}
+.workspace-brand::before {
+  content:"";position:absolute;left:1.15rem;top:50%;transform:translateY(-50%);
+  width:27px;height:32px;border:2px solid rgba(255,255,255,.85);border-radius:6px;
+  background:linear-gradient(#fff,#fff) 5px 7px/13px 2px no-repeat,
+             linear-gradient(#fff,#fff) 5px 14px/13px 2px no-repeat,
+             linear-gradient(#fff,#fff) 5px 21px/9px 2px no-repeat;
+}
+[data-testid="stSidebar"] .stButton > button {
+  width:100%;justify-content:flex-start;text-align:left;border:1px solid transparent;
+  border-radius:10px;padding:.75rem .85rem;min-height:47px;box-shadow:none;
+  font-weight:600;transition:background-color .14s ease,color .14s ease;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] {background:transparent;color:#485976;}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {background:#f0f6ff;border-color:transparent;}
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  background:#e6f0ff!important;color:#0e5ed1!important;border-color:transparent;
+  box-shadow:inset 4px 0 #1872ec;font-weight:750;
+}
+[data-testid="stSidebar"] .stButton > button p {color:inherit;font-size:.88rem;}
+[data-testid="stSidebarHeader"] {position:absolute;top:0;right:0;z-index:2;background:transparent;}
+[data-testid="stSidebarCollapseButton"] button {color:#fff;}
+[data-testid="stSidebar"] .stButton > button > div {justify-content:flex-start;}
+/* Existing forms and bordered containers become the mockup's white cards. */
+[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] {
+  background:#fff;border-color:var(--sds-line)!important;border-radius:15px;
+  box-shadow:var(--sds-shadow);
+}
+[data-testid="stForm"] {padding:1.35rem;}
+[data-testid="stExpander"] {background:#fff;border:1px solid var(--sds-line);border-radius:12px;box-shadow:0 3px 14px rgba(17,50,102,.025);}
+[data-testid="stExpander"] details {border-color:transparent!important;}
+[data-testid="stExpander"] summary {color:var(--sds-navy);font-weight:650;min-height:46px;}
+[data-testid="stMetric"] {
+  background:#fff;border:1px solid var(--sds-line);border-radius:15px;
+  box-shadow:var(--sds-shadow);padding:1.15rem 1.2rem;min-height:112px;
+}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p {color:var(--sds-sub)!important;font-size:.78rem!important;font-weight:600;}
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] > div {color:#0f3c81!important;font-size:1.65rem!important;font-weight:750;line-height:1.3;}
+[data-testid="stDataFrame"], [data-testid="stTable"] {background:#fff;border:1px solid var(--sds-line);border-radius:12px;overflow:hidden;box-shadow:var(--sds-shadow);}
+/* Inputs, upload area, and actions retain native Streamlit behavior. */
+[data-testid="stWidgetLabel"] p {color:#445573!important;font-size:.83rem;font-weight:650;}
+[data-baseweb="input"], [data-baseweb="select"] > div, [data-baseweb="textarea"],
+[data-testid="stTextInputRootElement"], [data-testid="stTextAreaRootElement"] {
+  background:#fff!important;border-color:#cad7e9!important;border-radius:9px!important;
+}
+input,textarea {color:var(--sds-ink)!important;background:#fff!important;}
+[data-testid="stTextInputRootElement"]:focus-within,[data-testid="stTextAreaRootElement"]:focus-within,
+[data-baseweb="input"]:focus-within,[data-baseweb="select"]:focus-within > div,[data-baseweb="textarea"]:focus-within {
+  border-color:var(--sds-blue)!important;box-shadow:0 0 0 3px rgba(20,102,221,.10)!important;
+}
+[data-baseweb="tag"] {background:#edf4ff!important;color:#185ca9!important;border-radius:99px;border:1px solid #dfebff;}
+[data-testid="stFileUploaderDropzone"] {background:#f7fbff;border:2px dashed #9dbff5;border-radius:14px;padding:1.7rem 1.2rem;}
+.stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {
+  border-radius:9px;border:1px solid #c6d4e9;color:#21508b;font-weight:700;
+  min-height:41px;padding:.55rem .95rem;transition:background-color .14s ease,box-shadow .14s ease;
+}
+.stButton > button[kind="secondary"],.stDownloadButton > button[kind="secondary"], [data-testid="stFormSubmitButton"] > button[kind="secondary"] {background:#fff;}
+.stButton > button[kind="primary"],.stDownloadButton > button[kind="primary"], [data-testid="stFormSubmitButton"] > button[kind="primary"], [data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"] {
+  background:linear-gradient(120deg,#186de2,#0e54be);border-color:#115ecf;color:#fff;
+}
+.stButton > button p,.stDownloadButton > button p,[data-testid="stFormSubmitButton"] > button p {color:inherit;font-size:.85rem;}
+.stButton > button:hover,.stDownloadButton > button:hover {border-color:#7ca6e7;background:#f4f8ff;color:#1459b2;}
+.stButton > button[kind="primary"]:hover,[data-testid="stFormSubmitButton"] > button[kind="primary"]:hover, [data-testid="stFormSubmitButton"] > button[kind="primaryFormSubmit"]:hover {background:linear-gradient(120deg,#2479ec,#1466dd);color:white;}
+button:focus-visible,a:focus-visible {outline:3px solid #92baff!important;outline-offset:3px;}
+button:disabled {opacity:.5;cursor:not-allowed;}
+[data-baseweb="tab-list"] {gap:.55rem;flex-wrap:wrap;height:auto;padding:.3rem 0 .65rem;}
+button[data-baseweb="tab"] {height:auto;border-radius:10px;padding:.55rem .9rem;background:#f3f6fb;border:1px solid #e6edf5;color:#61728b;}
+button[data-baseweb="tab"][aria-selected="true"] {background:#e2efff;border-color:#9dc4ff;color:#125ac1;font-weight:700;}
+button[data-baseweb="tab"] p {color:inherit;font-size:.82rem;}
+[data-baseweb="tab-highlight"] {background:var(--sds-blue);}
+[data-baseweb="tab-border"] {background:var(--sds-line);}
+[data-testid="stProgress"] [role="progressbar"] {background:linear-gradient(90deg,#2882ef,#12a582);border-radius:99px;}
+[data-testid="stCode"] {border-radius:10px;border:1px solid var(--sds-line);}
+[data-testid="stAlert"] {border-radius:10px;font-size:.83rem;}
+[data-testid="stAlert"] p {color:inherit;}
+[role="dialog"] {background:#fff;border-radius:17px;box-shadow:0 25px 70px rgba(11,34,72,.24);border:1px solid var(--sds-line);}
+.workspace-divider {height:1px;margin:1.1rem 0;background:var(--sds-line);}
+.workspace-note {font-size:.8rem;color:var(--sds-sub);}
+/* Preserve the controls already hidden by the preceding app theme. */
+[data-testid="stDeployButton"], [data-testid="stAppDeployButton"] {display:none;}
+footer {visibility:hidden;}
+@media(min-width:901px) {[data-testid="stSidebar"] {min-width:260px!important;max-width:260px!important;}}
+@media(max-width:900px) {
+  .block-container {padding:1.35rem 1rem 3.5rem;}
+  h1 {font-size:1.45rem!important;}
+  [data-testid="stForm"] {padding:1rem;}
+}
+@media(max-width:640px) {
+  [data-testid="stHorizontalBlock"] {flex-wrap:wrap!important;}
+  [data-testid="stColumn"] {flex:1 1 100%!important;min-width:0!important;width:100%!important;}
+  [data-testid="stMetric"] {min-height:96px;}
+  [data-baseweb="tab-list"] {gap:.35rem;}
+  button[data-baseweb="tab"] {padding:.5rem .65rem;}
+}
+@media(prefers-reduced-motion:reduce) {* {scroll-behavior:auto!important;transition:none!important;}}
+
+</style>""", unsafe_allow_html=True)
 
 
 def title_line(title: str, subtitle: str = ""):
