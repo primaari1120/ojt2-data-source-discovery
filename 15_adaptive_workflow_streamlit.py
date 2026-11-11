@@ -12,6 +12,7 @@ The product UI intentionally avoids exposing internal diagnostics by default.
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import hashlib
 import os
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import streamlit as st
 from ojt2_object_definition import render_object_definition
+from ojt2_analysis_runtime import (AnalysisTimer, runtime_for_context, history_runtime, format_duration)
 from ojt2_discovery_core import (
     HISTORY_DB,
     unique_fields, save_review, list_reviews, get_setting, set_setting,
@@ -382,17 +384,14 @@ def page_upload(data, index):
             context = {"purpose":purpose.strip(), "source_hint":source_hint.strip(),
                        "filtering":filtering.strip(), "required_fields":unique_fields(required_text),
                        "origin":req.get("origin", "User input")}
-            st.session_state["req_ctx"] = context
-            st.session_state["allowed_dbs"] = allowed
-            plan = plan_search(context)
-            st.session_state["adaptive_plan"] = plan
+            try:
+                plan = _run_discovery(data, index, context, allowed)
+            except Exception as exc:
+                st.error(f"Analyze gagal setelah {format_duration(st.session_state.get('analysis_runtime'))}: {exc}")
+                return
             if plan["primary"] == "INSUFFICIENT_EVIDENCE":
                 st.warning("Informasi belum cukup. Tambahkan Purpose, Data Source, atau field yang lebih spesifik.")
             else:
-                results = discover(data, index, context, allowed_databases=allowed,
-                                   limit=int(get_setting("max_candidates", 12)))
-                st.session_state["discovery_results"] = results
-                st.session_state["selected_candidate"] = results[0]["object_key"] if results else ""
                 go(PAGES[1])
                 st.rerun()
 
@@ -410,10 +409,67 @@ def _support_cache_key(req,candidate,allowed,metadata_run_id):
     return hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
 
 
+
+def _run_discovery(data, index, context, allowed, limit=None, *, trigger="analyze", preferred=None):
+    """Measure one backend run through the initially inspected supporting sources.
+
+    The immutable runtime travels with every candidate. Browsing later candidates
+    or waiting for PIC review does not extend it. Existing support-cache semantics
+    remain in force, including repeated Analyze of the same input.
+    """
+    allowed = list(allowed) if allowed is not None else sorted({o['database_name'] for o in data['objects']})
+    revision = data.get('metadata_run', {}).get('run_id')
+    timer = AnalysisTimer(context, allowed, revision, trigger=trigger)
+    st.session_state['req_ctx'] = context
+    st.session_state['allowed_dbs'] = allowed
+    st.session_state['discovery_results'] = []
+    st.session_state['selected_candidate'] = ''
+    st.session_state['analysis_runtime'] = None
+    options = {'show_time': True} if 'show_time' in inspect.signature(st.spinner).parameters else {}
+    try:
+        with st.spinner('Analyze sedang berjalan...', **options):
+            plan = plan_search(context)
+            st.session_state['adaptive_plan'] = plan
+            if plan['primary'] == 'INSUFFICIENT_EVIDENCE':
+                return plan
+            selected_limit = int(get_setting("max_candidates", 12)) if limit is None else limit
+            results = discover(data, index, context, allowed_databases=allowed, limit=selected_limit)
+            keys = [c['object_key'] for c in results]
+            selected = preferred if preferred in keys else keys[0] if keys else ''
+            if selected:
+                candidate = next(c for c in results if c['object_key'] == selected)
+                key = _support_cache_key(context, candidate, allowed, revision)
+                cached = st.session_state.get('_support_cache')
+                if not cached or cached['key'] != key:
+                    support = find_supporting(data, index, candidate, context, allowed_databases=allowed)
+                    st.session_state['_support_cache'] = {
+                        'key': _support_cache_key(context, candidate, allowed, revision), 'value': support}
+            runtime = timer.finish('completed' if results else 'no_candidates')
+    except Exception:
+        st.session_state['analysis_runtime'] = timer.finish('failed')
+        raise
+    for candidate in results:
+        candidate['analysis_runtime'] = dict(runtime)
+    st.session_state['discovery_results'] = results
+    st.session_state['selected_candidate'] = selected
+    st.session_state['analysis_runtime'] = runtime
+    return plan
+
+
+def _show_analysis_runtime(runtime):
+    if runtime:
+        label = 'Analyze gagal' if runtime['status'] == 'failed' else 'Analyze time'
+        st.caption(f"{label}: **{format_duration(runtime)}** · Finished UTC: {runtime['finished_at_utc']}")
+
+
 def page_results(data, index, mod, metadata_fresh: bool, metadata_run_id: int):
     title_line("Discovery Results", "Bandingkan sumber data, periksa kecocokan field, dan tinjau rekomendasi.")
     req = st.session_state.get("req_ctx")
     ranked = st.session_state.get("discovery_results", [])
+    allowed = st.session_state.get("allowed_dbs", [])
+    measured = ranked[0].get('analysis_runtime') if ranked else st.session_state.get('analysis_runtime')
+    runtime = runtime_for_context(measured, req, allowed, metadata_run_id) if req else None
+    _show_analysis_runtime(runtime)
     if not req or not ranked:
         st.info("Belum ada hasil discovery. Silakan jalankan Analyze dari Upload Requirement.")
         st.button("Buka Upload Requirement", on_click=go, args=(PAGES[0],), type="primary")
@@ -597,8 +653,8 @@ def page_results(data, index, mod, metadata_fresh: bool, metadata_run_id: int):
                             # business domain is inferred; never invent a domain.
                             record_alias_decision(domain or 'GENERAL', c['object_key'], chosen_map['requested'], chosen_map['actual'],
                                                   decision, reviewer_alias, notes_alias)
-                            st.session_state['discovery_results']=discover(data,index,req,allowed_databases=allowed,
-                                                    limit=int(get_setting('max_candidates', 12)))
+                            _run_discovery(data,index,req,allowed,
+                                           trigger='alias_feedback',preferred=c['object_key'])
                             st.success('Feedback tersimpan di Alias Registry. Ranking dihitung ulang.')
                             st.rerun()
                         except ValueError as exc:
@@ -632,9 +688,8 @@ def page_results(data, index, mod, metadata_fresh: bool, metadata_run_id: int):
                                 record_missing_field_correction(plan.get('domain') or 'GENERAL',
                                     c['object_key'],missed['requested'],corrected,missed['status'],
                                     corrected_by,corrected_reason,physical_columns)
-                                st.session_state['discovery_results']=discover(data,index,req,
-                                    allowed_databases=allowed,limit=int(get_setting('max_candidates',12)))
-                                st.session_state['selected_candidate']=c['object_key']
+                                _run_discovery(data,index,req,allowed,
+                                               trigger='manual_correction',preferred=c['object_key'])
                                 st.success('Koreksi disimpan pada Alias Registry dan audit. Ranking diperbarui.')
                                 st.rerun()
                             except Exception as exc:
@@ -749,14 +804,24 @@ def page_history():
         rows=[]
         for x in items:
             req=json.loads(x["requirement_json"])
-            rows.append({"Date UTC":x["saved_at"],"Reviewer":x["actor"],
+            timing = history_runtime(x)
+            rows.append({"Date UTC":x["saved_at"],
+                         "Analyze time (s)": timing['duration_seconds'] if timing else None,
+                         "Reviewer":x["actor"],
                          "Purpose":req.get("purpose", "")[:80],"Candidate":x["candidate_fqn"],
                          "Review Status":x["status"], "Engine":x["engine_version"],"ID":x["id"]})
-        st.dataframe(rows,hide_index=True,use_container_width=True)
+        st.dataframe(rows,hide_index=True,use_container_width=True,
+                     column_config={"Analyze time (s)":st.column_config.NumberColumn(format="%.2f s")})
         chosen=st.selectbox("View saved record",[item["id"] for item in items],
                             format_func=lambda k: next(f"{r['Date UTC']} · {r['Candidate']} · ID {k}" for r in rows if r["ID"]==k))
         item=next(x for x in items if x["id"]==chosen)
         st.write("**Reviewer notes:**",item["notes"])
+        timing = history_runtime(item)
+        if timing:
+            _show_analysis_runtime(timing)
+            st.caption(f"Started UTC: {timing['started_at_utc']}")
+        else:
+            st.caption("Analyze time: — (durasi belum tercatat pada record ini).")
         a,b,c=st.columns(3)
         a.caption(f"Catalog snapshot: {item['catalog_run_id']}")
         b.caption(f"Engine: {item['engine_version']}")
@@ -775,12 +840,8 @@ def _refresh_discovery_if_available(data, index):
     if request and st.session_state.get('discovery_results') is not None:
         previous=st.session_state.get('selected_candidate')
         allowed=st.session_state.get('allowed_dbs')
-        results=discover(data,index,request,allowed_databases=allowed,
-                         limit=int(get_setting('max_candidates',12)))
-        st.session_state['discovery_results']=results
-        available={r['object_key'] for r in results}
-        st.session_state['selected_candidate']=(previous if previous in available
-             else results[0]['object_key'] if results else '')
+        _run_discovery(data,index,request,allowed,
+                       trigger='metadata_feedback',preferred=previous)
 
 
 def _meta_saved_widget(key: str, default, options=None):
