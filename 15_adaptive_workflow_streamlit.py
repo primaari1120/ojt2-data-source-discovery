@@ -128,18 +128,23 @@ hr {border-color:var(--sds-line)!important;margin:.5rem 0!important;}
 [data-testid="stSidebarContent"] {background:linear-gradient(#0c4baa 0 28px,#fff 28px);}
 
 .workspace-brand {
-  position:relative;background:linear-gradient(130deg,#0c4baa,#0a63db);
-  color:#fff!important;font-weight:800;font-size:.88rem;line-height:1.4;
-  letter-spacing:-.025em;padding:10px 18px 18px 54px;
-  margin:0 -10px 12px;min-height:76px;display:flex;align-items:center;
+  background:linear-gradient(130deg,#0c4baa,#0a63db);color:#fff!important;
+  margin:0 -10px 12px;min-height:88px;padding:12px 16px 18px;
+  display:flex;align-items:center;gap:12px;box-sizing:border-box;
 }
-.workspace-brand::before {
-  content:"";position:absolute;left:17px;top:50%;transform:translateY(-50%);
-  width:24px;height:29px;border:2px solid rgba(255,255,255,.85);border-radius:6px;
-  background:linear-gradient(#fff,#fff) 5px 7px/13px 2px no-repeat,
-             linear-gradient(#fff,#fff) 5px 14px/13px 2px no-repeat,
-             linear-gradient(#fff,#fff) 5px 21px/9px 2px no-repeat;
+.workspace-brand-logo {
+  width:56px;height:56px;flex:0 0 56px;display:flex;align-items:center;
+  justify-content:center;background:#fff;border:1px solid #e5edf7;
+  border-radius:12px;padding:5px;box-sizing:border-box;overflow:hidden;
 }
+.workspace-brand-logo img {
+  display:block;width:100%;height:100%;object-fit:contain;
+}
+.workspace-brand-title {
+  color:#fff!important;font-size:13px;font-weight:650;line-height:1.45;
+  letter-spacing:0;min-width:0;
+}
+.workspace-brand-title span {display:block;white-space:nowrap;}
 [data-testid="stSidebar"] .stButton > button {
   width:100%;justify-content:flex-start;text-align:left;border:1px solid transparent;
   border-radius:10px;padding:.7rem .8rem;min-height:43px;box-shadow:none;
@@ -297,8 +302,23 @@ def _sidebar(data, metadata_ok: bool):
     # data and metadata_ok are retained for API compatibility; internal counters are
     # intentionally hidden from the regular navigation UI.
     with st.sidebar:
-        st.markdown('<div class="workspace-brand">Smart Data Source Discovery</div>',
-                    unsafe_allow_html=True)
+        # Keep the supplied brand image local; no network request is needed.
+        logo_path = HERE / "assets" / "sds_logo.png"
+        logo_html = ""
+        if logo_path.is_file():
+            import base64
+            try:
+                logo_data = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+                logo_html = ('<span class="workspace-brand-logo" aria-hidden="true">'
+                             f'<img src="data:image/png;base64,{logo_data}" alt="">'
+                             '</span>')
+            except OSError:
+                pass  # An unavailable decorative image must not block discovery.
+        st.markdown(
+            '<div class="workspace-brand">' + logo_html +
+            '<span class="workspace-brand-title"><span>Smart Data</span>'
+            '<span>Source Discovery</span></span></div>',
+            unsafe_allow_html=True)
         for i, (page_key, label) in enumerate(zip(PAGES, NAV_LABELS)):
             st.button(label,
                       key=f"workspace_nav_{i}",
