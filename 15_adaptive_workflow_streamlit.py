@@ -1065,7 +1065,9 @@ def modpath():
 
 
 def main():
-    st.set_page_config(page_title="Smart Data Source Discovery",page_icon="🔎",
+    brand_icon = HERE / "assets" / "sds_logo.png"
+    st.set_page_config(page_title="Smart Data Source Discovery",
+                       page_icon=str(brand_icon) if brand_icon.is_file() else "🔎",
                        layout="wide",initial_sidebar_state="expanded")
     inject_style()
     _nav_start()
