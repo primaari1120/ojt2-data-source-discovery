@@ -1,8 +1,41 @@
-# OJT2 Generalized Matching Update
+[Download pembaruan v0.6](./OJT2_Generalized_Matching_Update_v06.zip?raw=true)
 
-[Download OJT2_Generalized_Matching_Update.zip](./OJT2_Generalized_Matching_Update.zip?raw=true)
+# v0.6 — Ranking dan performa Analyze
 
-ZIP SHA256: `a9fde95f840e2c1abd80580339a40b79e82ca5136675c1072d4c42af7b05c50b`
+Paket ini mencakup pembaruan generalized matching sebelumnya beserta perbaikan ranking dan performa. Salin seluruh file pembaruan ke folder kode aplikasi lama; pertahankan lokasi katalog, SQLite history dan folder model. Tidak perlu reset DB atau menghapus feedback.
+
+Jalankan: python 36_validate_ranking_performance.py
+Jalankan: python 34_validate_generalized_matching.py
+Uji model lokal: python 35_validate_bilingual_model.py --report model_report.json
+Mulai aplikasi: python -m streamlit run 15_adaptive_workflow_streamlit.py
+
+## Perubahan
+
+- Untuk request yang memiliki fields, ranking memakai evidence per field (maksimum 80 poin) dan konteks (maksimum 20). Bobot merupakan heuristik ranking, bukan confidence terkalibrasi atau verified coverage.
+- Setiap requested field dihitung sekali. Hipotesis semantic tidak mendapat bonus berulang sebagai field tambahan. Hipotesis semantic, grain dan identifier diberi kekuatan lebih rendah daripada exact/alias yang jelas.
+- Konflik jenis atribut mencakup nama vs tipe/klasifikasi dan klasifikasi vs organisasi; bukan pengecualian untuk pasangan field tertentu.
+- Normalisasi/tokenisasi menggunakan cache yang menyertakan versi isi term rules sebagai key; perubahan operator glossary tidak memakai hasil lama.
+- Embedding untuk scope metadata berizin dipersiapkan dalam batch; cache tetap terbatas. CPU default maksimum 4 thread untuk menghindari overhead thread berlebihan. OJT2_SEMANTIC_THREADS dapat diatur ke integer positif untuk menyesuaikan perangkat; OMP_NUM_THREADS yang eksplisit juga dihormati.
+- Source Gap pada Results di-cache per sesi. Key meliputi request, kandidat, mapping, scope, catalog run, engine/rule version dan revisi repository history; perubahan feedback/config atau metadata menginvalidasi cache.
+- Ranking evidence disimpan dalam candidate; tidak mengubah keputusan historis atau memberi approval otomatis.
+
+## Reproduksi kasus pengguna
+
+Purpose: Monitoring Data GDL. Source hint: GDL. Sepuluh field dari screenshot direproduksi pada fixture metadata demo yang sudah ada.
+
+Versi lama: vwGDLListOutbound 65.3, vwGDLTrace 62.7.
+Versi baru: vwGDLTrace 65.6, vwGDLListOutbound 42.8.
+Tidak ada nama sumber GDL yang ditambahkan sebagai aturan ranking.
+
+Waktu pada Cloud, 14 objek/10 field: cold Analyze 10.61 -> 9.54 detik; warm Analyze 2.50 -> 1.26 detik; first gap 1.33 -> 0.36 detik. Waktu ini bergantung pada hardware, ukuran katalog, cache, model dan thread; bukan janji bahwa Analyze satu menit di laptop akan menjadi satu detik. Pemanggilan pertama tetap memuat model.
+
+## Validasi
+
+16 skrip regresi lolos (termasuk validator 36). Model lokal sungguhan: hit@3 15/15, penolakan pasangan negatif 7/7. UI AppTest: mapping/ambiguity berfungsi, rerun kedua tidak menghitung ulang Source Gap. Tidak mengakses SQL Server pengguna.
+
+Tidak ada field missing tidak berarti seluruh mapping verified. ID GDL -> GDLDetailID tetap memerlukan validasi grain/header-detail. Aturan bisnis/field bersyarat tetap memerlukan PIC.
+
+---
 
 # Pembaruan generalized field matching OJT 2
 
